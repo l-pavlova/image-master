@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/l-pavlova/image-master/imageParse"
+	"github.com/l-pavlova/image-master/app"
 )
 
 func main() {
@@ -17,5 +17,6 @@ func main() {
 		return
 	}
 
-	imageParse.ReadFrom()
+	imMaster := app.NewImageMaster()
+	imMaster.GrayScale("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput")
 }
