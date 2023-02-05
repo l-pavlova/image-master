@@ -1,7 +1,21 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+
+	"github.com/l-pavlova/image-master/imageParse"
+)
 
 func main() {
-	fmt.Println("Image master.")
+
+	argsWithoutProg := os.Args[1:]
+
+	if len(argsWithoutProg) == 0 {
+		err := fmt.Errorf("%s", "Pass correct command line arguments to the program\n")
+		fmt.Println(err)
+		return
+	}
+
+	imageParse.ReadFrom()
 }
