@@ -1,4 +1,4 @@
-package imageparse
+package imagemanip
 
 import (
 	"image"
@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-//util func that returns the contents of an image file
+// util func that returns the contents of an image file
 func ReadFrom(filePath string) (image.Image, error) {
 
 	//todo: add handling for non image files

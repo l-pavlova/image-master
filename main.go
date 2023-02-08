@@ -19,4 +19,5 @@ func main() {
 
 	imMaster := app.NewImageMaster()
 	imMaster.GrayScale("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput")
+	imMaster.Smoothen("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput", 4)
 }
