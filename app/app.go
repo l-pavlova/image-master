@@ -20,7 +20,10 @@ func NewImageMaster() *ImageMaster {
 	return &ImageMaster{}
 }
 
+// The GrayScale function uses a standart method from the image library  to convert an image to GrayScale and saves it to the outPath directory
 // For a realistic RGB -> grayscale conversion, the following weights have to be used: Y = 0.299 * R +  0.587 * G + 0.114 * B
+// inPath is the path from which an image is taken
+// outPath is the path where the image is saved
 func (i *ImageMaster) GrayScale(inPath, outPath string) error {
 
 	img, err := imagemanip.ReadFrom(inPath)
@@ -48,6 +51,10 @@ func (i *ImageMaster) GrayScale(inPath, outPath string) error {
 	return nil
 }
 
+// The smoothen function uses a gaussian blur with kernel of size 5x5 to smoothen an image
+// inPath is the path from which an image is taken
+// outPath is the path where the image is saved
+// timesToRepeat is an integer value, signaling how many times the blur would be applied to the image a.k.a filter strength
 func (i *ImageMaster) Smoothen(inPath, outPath string, timesToRepeat int) error {
 	img, err := imagemanip.ReadFrom(inPath)
 	if err != nil {
