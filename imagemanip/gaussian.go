@@ -11,7 +11,7 @@ func ApplyGaussian(img image.Image) (image.Image, error) {
 	width, height := bounds.Max.X, bounds.Max.Y
 
 	kernelSize := 2
-	kernel := GenerateGaussianKernel(1.0, kernelSize)
+	kernel := generateGaussianKernel(1.0, kernelSize)
 	target := image.NewRGBA(img.Bounds())
 
 	for y := 0; y < height; y++ {
@@ -37,7 +37,8 @@ func ApplyGaussian(img image.Image) (image.Image, error) {
 	return target, nil
 }
 
-func GenerateGaussianKernel(sigma float64, kernelSize int) [][]float64 {
+// a function that generates a kernel with normal distribution for gaussian blur
+func generateGaussianKernel(sigma float64, kernelSize int) [][]float64 {
 	s := 2.0 * sigma * sigma
 	sum := 0.0
 	kernel := make([][]float64, 2*kernelSize+1)
