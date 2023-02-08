@@ -6,13 +6,7 @@ import (
 	"math"
 )
 
-// todo: figure out where is the best place for this type
-type Changeable interface {
-	Set(x, y int, c color.Color)
-	//	SetRGBA(x, y int, r, g, b, a uint32)
-}
-
-func Gaussian(img image.Image) (image.Image, error) {
+func ApplyGaussian(img image.Image) (image.Image, error) {
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 

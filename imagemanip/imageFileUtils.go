@@ -25,6 +25,7 @@ func ReadFrom(filePath string) (image.Image, error) {
 	return image, err
 }
 
+// util func that saves an image to a given path
 func SaveTo(filePath, fileName string, img image.Image) (bool, error) {
 
 	fd, err := os.Create(strings.Join([]string{filePath, fileName}, "/"))

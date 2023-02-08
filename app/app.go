@@ -61,13 +61,13 @@ func (i *ImageMaster) Smoothen(inPath, outPath string, timesToRepeat int) error 
 		return fmt.Errorf("Error occurred during img parsing %w", err)
 	}
 
-	res, err := imagemanip.Gaussian(img)
+	res, err := imagemanip.ApplyGaussian(img)
 	if err != nil {
 		return fmt.Errorf("Error occurred during img smoothing with gaussian filter %w", err)
 	}
 
-	for i := 0; i < timesToRepeat; i++ {
-		tempRes, err := imagemanip.Gaussian(res)
+	for i := 0; i < timesToRepeat-1; i++ {
+		tempRes, err := imagemanip.ApplyGaussian(res)
 		if err != nil {
 			return fmt.Errorf("Error occurred during img smoothing with gaussian filter on iteration %d %w", i, err)
 		}
