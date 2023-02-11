@@ -6,6 +6,7 @@ import (
 	"math"
 )
 
+// func takes an image, generates a gaussian kernel of size 2 and applies gaussian smoothen filter
 func ApplyGaussian(img image.Image) (image.Image, error) {
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y

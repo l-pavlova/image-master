@@ -51,6 +51,11 @@ func (i *ImageMaster) GrayScale(inPath, outPath string) error {
 	return nil
 }
 
+func (i *ImageMaster) Find(inPath, outPath string) error {
+	//gocv.Recognise(inPath)
+	return nil
+}
+
 // The smoothen function uses a gaussian blur with kernel of size 5x5 to smoothen an image
 // inPath is the path from which an image is taken
 // outPath is the path where the image is saved
@@ -79,5 +84,29 @@ func (i *ImageMaster) Smoothen(inPath, outPath string, timesToRepeat int) error 
 	if err != nil {
 		return fmt.Errorf("Error occurred during img saving %w", err)
 	}
+	return nil
+}
+
+func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
+
+	img, err := imagemanip.ReadFrom(inPath)
+	if err != nil {
+		return fmt.Errorf("Error occurred during img parsing %w", err)
+	}
+
+	res := imagemanip.MorphGradient(img)
+	// for i := 0; i < timesToRepeat-1; i++ {
+	// 	tempRes := imagemanip.MorphGradient(res)
+	// 	if err != nil {
+	// 		return fmt.Errorf("Error occurred during img smoothing with gaussian filter on iteration %d %w", i, err)
+	// 	}
+	// 	res = tempRes
+	// }
+
+	_, err = imagemanip.SaveTo(outPath, "testSharpen.jpg", res)
+	if err != nil {
+		return fmt.Errorf("Error occurred during img saving %w", err)
+	}
+
 	return nil
 }

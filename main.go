@@ -18,6 +18,8 @@ func main() {
 	}
 
 	imMaster := app.NewImageMaster()
-	imMaster.GrayScale("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput")
-	imMaster.Smoothen("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput", 4)
+	//imMaster.GrayScale("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput")
+	//imMaster.Smoothen("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput", 4)
+	//imMaster.Sharpen("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput", 3)
+	imMaster.Find("C:\\Users\\Lyudmila\\Desktop\\images\\laptop.jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput")
 }
