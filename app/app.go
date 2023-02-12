@@ -1,11 +1,15 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"image"
+
 	"image/color"
+	"image/jpeg"
 
 	"github.com/l-pavlova/image-master/imagemanip"
+	"github.com/l-pavlova/image-master/tensorflowAPI"
 )
 
 // type changeable used for assertion on parsed images
@@ -48,11 +52,6 @@ func (i *ImageMaster) GrayScale(inPath, outPath string) error {
 	}
 
 	fmt.Println(res)
-	return nil
-}
-
-func (i *ImageMaster) Find(inPath, outPath string) error {
-	//gocv.Recognise(inPath)
 	return nil
 }
 
@@ -108,5 +107,21 @@ func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
 		return fmt.Errorf("Error occurred during img saving %w", err)
 	}
 
+	return nil
+}
+
+func (i *ImageMaster) Find(inPath, outPath string, timesToRepeat int) error {
+	img, err := imagemanip.ReadFrom(inPath)
+	if err != nil {
+		return fmt.Errorf("Error occurred during img parsing %w", err)
+	}
+
+	buf := new(bytes.Buffer)
+	err = jpeg.Encode(buf, img, nil)
+	if err != nil {
+		return fmt.Errorf("Error occurred during img buffering %w", err)
+	}
+
+	tensorflowAPI.ClassifyImage(buf.Bytes())
 	return nil
 }
