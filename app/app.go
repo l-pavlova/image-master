@@ -18,10 +18,17 @@ type Changeable interface {
 }
 
 type ImageMaster struct {
+	tfClient TensorFlowClient
+}
+
+type TensorFlowClient interface {
+	ClassifyImage(buffer string) error
 }
 
 func NewImageMaster() *ImageMaster {
-	return &ImageMaster{}
+	return &ImageMaster{
+		tfClient: &*tensorflowAPI.NewTensorFlowClient(),
+	}
 }
 
 // The GrayScale function uses a standart method from the image library  to convert an image to GrayScale and saves it to the outPath directory
@@ -122,7 +129,7 @@ func (i *ImageMaster) Find(inPath, outPath string, timesToRepeat int) error {
 		return fmt.Errorf("Error occurred during img buffering %w", err)
 	}
 
-	err = tensorflowAPI.ClassifyImage(buf.String())
+	err = i.tfClient.ClassifyImage(buf.String())
 	if err != nil {
 		return fmt.Errorf("Error occurred during img clasification %w", err)
 	}
