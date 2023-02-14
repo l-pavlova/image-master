@@ -2,14 +2,14 @@ package tensorflowAPI
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 
 	tf "github.com/galeone/tensorflow/tensorflow/go"
+
 	"github.com/galeone/tensorflow/tensorflow/go/op"
+	"github.com/l-pavlova/image-master/logging"
 )
 
 var (
@@ -20,21 +20,17 @@ var (
 const (
 	inception_model_path   = "tensorflowAPI/model/tensorflow_inception_graph.pb"
 	inception_model_labels = "tensorflowAPI/model/imagenet_comp_graph_label_strings.txt"
-	Ldate                  = 1 << iota     // the date in the local time zone: 2009/01/23
-	Ltime                                  // the time in the local time zone: 01:23:23
-	LstdFlags              = Ldate | Ltime // initial values for the standard logger
 )
 
 type TensorFlowClient struct {
 	graph  *tf.Graph
 	labels []string
-	logger *log.Logger
+	logger logging.ImageMasterLogger
 }
 
-func NewTensorFlowClient() *TensorFlowClient {
-	var buf bytes.Buffer
+func NewTensorFlowClient(logger logging.ImageMasterLogger) *TensorFlowClient {
 	tfClient := &TensorFlowClient{
-		logger: log.New(&buf, "tensorflow logger: ", LstdFlags),
+		logger: logger,
 	}
 	//tfClient.initTF()
 
@@ -47,26 +43,27 @@ func (t *TensorFlowClient) ClassifyImage(imagebuff string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("image tensor created")
+	t.logger.Log("info", "image tensor created")
 
 	normalized, err := normalizeImage(imageTensor)
 	if err != nil {
 		return err
 	}
-	fmt.Println("image normalzied, ", normalized)
+
+	t.logger.Log("info", "image normalzied")
 
 	model, labels, err := loadModel()
 	if err != nil {
 		return err
 	}
-	fmt.Println("labels retrieved: ", labels[0])
+	t.logger.Log("info", "labels retrieved, first few are", labels[:5])
 
 	res, err := getProbabilities(model, normalized)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("probabilities gotten.")
+	t.logger.Log("info", "probabilities gotten.")
 	_ = res
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"image/jpeg"
 
 	"github.com/l-pavlova/image-master/imagemanip"
+	"github.com/l-pavlova/image-master/logging"
 	"github.com/l-pavlova/image-master/tensorflowAPI"
 )
 
@@ -19,6 +20,7 @@ type Changeable interface {
 
 type ImageMaster struct {
 	tfClient TensorFlowClient
+	logger   *logging.ImageMasterLogger
 }
 
 type TensorFlowClient interface {
@@ -26,9 +28,13 @@ type TensorFlowClient interface {
 }
 
 func NewImageMaster() *ImageMaster {
-	return &ImageMaster{
-		tfClient: &*tensorflowAPI.NewTensorFlowClient(),
+	imagemaster := &ImageMaster{
+		tfClient: nil,
+		logger:   logging.NewImageMasterLogger(),
 	}
+
+	imagemaster.tfClient = &*tensorflowAPI.NewTensorFlowClient(*imagemaster.logger)
+	return imagemaster
 }
 
 // The GrayScale function uses a standart method from the image library  to convert an image to GrayScale and saves it to the outPath directory
