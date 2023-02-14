@@ -38,4 +38,4 @@ RUN pwd
 # Install the app
 RUN go build -o imagemaster
 
-CMD [ "/app/imagemaster", "param" ]
+ENTRYPOINT [ "/app/imagemaster" ]

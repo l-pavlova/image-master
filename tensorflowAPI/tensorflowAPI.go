@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"sort"
 
 	tf "github.com/galeone/tensorflow/tensorflow/go"
 
@@ -12,19 +14,24 @@ import (
 	"github.com/l-pavlova/image-master/logging"
 )
 
+const (
+	inception_model_path   = "tensorflowAPI/model/tensorflow_inception_graph.pb"
+	inception_model_labels = "tensorflowAPI/model/imagenet_comp_graph_label_strings.txt"
+	coco_model_path        = "tensorflowAPI/model/frozen_inference_graph.pb"
+	coco_labels_path       = "tensorflowAPI/model/coco_labels.txt"
+)
+
 var (
 	graph  *tf.Graph
 	labels []string
 )
 
-const (
-	inception_model_path   = "tensorflowAPI/model/tensorflow_inception_graph.pb"
-	inception_model_labels = "tensorflowAPI/model/imagenet_comp_graph_label_strings.txt"
-)
+type Label struct {
+	Label       string
+	Probability float32
+}
 
 type TensorFlowClient struct {
-	graph  *tf.Graph
-	labels []string
 	logger logging.ImageMasterLogger
 }
 
@@ -32,8 +39,9 @@ func NewTensorFlowClient(logger logging.ImageMasterLogger) *TensorFlowClient {
 	tfClient := &TensorFlowClient{
 		logger: logger,
 	}
-	//tfClient.initTF()
 
+	graph = initModel(coco_model_path, logger)
+	labels = initLables(coco_labels_path, logger)
 	return tfClient
 }
 
@@ -52,50 +60,53 @@ func (t *TensorFlowClient) ClassifyImage(imagebuff string) error {
 
 	t.logger.Log("info", "image normalzied")
 
-	model, labels, err := loadModel()
-	if err != nil {
-		return err
-	}
-	t.logger.Log("info", "labels retrieved, first few are", labels[:5])
-
-	res, err := getProbabilities(model, normalized)
+	probabilities, _, _, err := t.getProbabilities(normalized)
 	if err != nil {
 		return err
 	}
 
 	t.logger.Log("info", "probabilities gotten.")
-	_ = res
+	top5 := getTopLabel(labels, probabilities)
+	t.logger.Log("info", "top 5 matches are", top5)
 	return nil
 }
 
-func loadModel() (*tf.Graph, []string, error) {
-	// Load inception model
-	model, err := ioutil.ReadFile(inception_model_path)
+func initModel(modelPath string, logger logging.ImageMasterLogger) *tf.Graph {
+	model, err := ioutil.ReadFile(modelPath)
 	if err != nil {
-		return nil, nil, err
+		return nil
 	}
-	graph = tf.NewGraph()
+
+	graph := tf.NewGraph()
 	if err := graph.Import(model, ""); err != nil {
-		return nil, nil, err
+		return nil
 	}
+
+	logger.Log("info", "retrieved labels count: ", len(labels))
+	return graph
+}
+
+func initLables(labelsFilePath string, logger logging.ImageMasterLogger) []string {
 	// Load labels
-	labelsFile, err := os.Open(inception_model_labels)
+	labelsFile, err := os.Open(labelsFilePath)
 	if err != nil {
-		return nil, nil, err
+		return nil
 	}
+
 	defer labelsFile.Close()
 	scanner := bufio.NewScanner(labelsFile)
+
 	// Labels are separated by newlines
 	for scanner.Scan() {
 		labels = append(labels, scanner.Text())
 	}
+
 	if err := scanner.Err(); err != nil {
-		return nil, nil, err
+		return nil
 	}
 
-	fmt.Println(labels[0])
-
-	return graph, labels, nil
+	logger.Log("info", "retrieved labels count: ", len(labels))
+	return labels
 }
 
 func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
@@ -109,6 +120,7 @@ func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer session.Close()
 
 	fmt.Println("Normalizing image")
 	normalized, err := session.Run(
@@ -133,43 +145,64 @@ func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 func getNormalizedGraph() (graph *tf.Graph, input, output tf.Output, err error) {
 	s := op.NewScope()
 	input = op.Placeholder(s, tf.String)
-
-	decode := op.DecodeJpeg(s, input, op.DecodeJpegChannels(3))
-	fmt.Println("unifying for inception")
-	output = op.Sub(s,
-		// make it 224x224: inception specific
-		op.ResizeBilinear(s,
-			op.ExpandDims(s,
-				op.Cast(s, decode, tf.Float),
-				op.Const(s.SubScope("make_batch"), int32(0))),
-			op.Const(s.SubScope("size"), []int32{224, 224})),
-		// mean = 117: inception specific
-		op.Const(s.SubScope("mean"), float32(117)))
+	output = op.ExpandDims(s,
+		op.DecodeJpeg(s, input, op.DecodeJpegChannels(3)),
+		op.Const(s.SubScope("make_batch"), int32(0)))
 	graph, err = s.Finalize()
-	fmt.Println("unified ")
-	fmt.Println(input)
-	fmt.Println(output)
 	return graph, input, output, err
 }
 
-func getProbabilities(model *tf.Graph, tensor *tf.Tensor) (tf.Tensor, error) {
-	session, err := tf.NewSession(model, nil)
+func (t *TensorFlowClient) getProbabilities(tensor *tf.Tensor) ([]float32, []float32, [][]float32, error) {
+	session, err := tf.NewSession(graph, nil)
 	if err != nil {
-		return tf.Tensor{}, err
+		log.Fatal(err)
 	}
 	defer session.Close()
 
+	inputop := graph.Operation("image_tensor")
+	// Output ops
+	o1 := graph.Operation("detection_boxes")
+	o2 := graph.Operation("detection_scores")
+	o3 := graph.Operation("detection_classes")
+	o4 := graph.Operation("num_detections")
+
 	output, err := session.Run(
 		map[tf.Output]*tf.Tensor{
-			model.Operation("input").Output(0): tensor,
+			inputop.Output(0): tensor,
 		},
 		[]tf.Output{
-			model.Operation("output").Output(0),
+			o1.Output(0),
+			o2.Output(0),
+			o3.Output(0),
+			o4.Output(0),
 		},
 		nil)
 	if err != nil {
-		return tf.Tensor{}, err
+		fmt.Print(err.Error())
+		log.Fatal(err)
 	}
 
-	return *output[0], nil
+	// Outputs
+	probabilities := output[1].Value().([][]float32)[0]
+	classes := output[2].Value().([][]float32)[0]
+	boxes := output[0].Value().([][][]float32)[0]
+
+	return probabilities, classes, boxes, nil
+}
+
+func getTopLabel(labels []string, probabilities []float32) []Label {
+	var resultLabels []Label
+	for i, p := range probabilities {
+		if i >= len(labels) {
+			break
+		}
+		resultLabels = append(resultLabels, Label{Label: labels[i], Probability: p})
+	}
+
+	sort.Slice(resultLabels, func(i, j int) bool {
+		return resultLabels[i].Probability > resultLabels[j].Probability
+	})
+
+	fmt.Println(resultLabels[:5])
+	return resultLabels[:5]
 }

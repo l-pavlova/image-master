@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/l-pavlova/image-master/app"
 )
@@ -16,15 +17,27 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-
-	imMaster := app.NewImageMaster()
 	fmt.Println("we running")
-	//imMaster.GrayScale("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput")
-	//imMaster.Smoothen("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput", 4)
-	//imMaster.Sharpen("C:\\Users\\Lyudmila\\Desktop\\images\\test (2).jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput", 3)
-	//imMaster.Find("C:\\Users\\Lyudmila\\Desktop\\images\\laptop.jpg", "C:\\Users\\Lyudmila\\Desktop\\images\\otuput", 2)
 
-	err := imMaster.Find("./images/laptop.jpg", "./images/otuput", 2)
+	command := argsWithoutProg[0]
+	imageMaster := app.NewImageMaster()
+
+	if strings.Contains(command, "-find=") {
+		//run tensorflow
+	}
+	switch command {
+	case "-grayscale":
+		//imageMaster.GrayScale()
+	case "-smoothen":
+		//imageMaster.GrayScale()
+	case "-sharpen":
+		//imageMaster.GrayScale()
+	case "-denoise":
+
+	}
+
+	err := imageMaster.Find("./images/sandwich.jpg", "./images/otuput", 2)
+
 	if err != nil {
 		fmt.Print(err)
 	}
