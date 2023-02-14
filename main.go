@@ -17,13 +17,16 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("we running")
-
 	command := argsWithoutProg[0]
 	imageMaster := app.NewImageMaster()
 
 	if strings.Contains(command, "-find=") {
-		//run tensorflow
+		objectToFind := strings.Split(command, "=")[1]
+		err := imageMaster.Find(objectToFind)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 	switch command {
 	case "-grayscale":
@@ -34,12 +37,6 @@ func main() {
 		//imageMaster.GrayScale()
 	case "-denoise":
 
-	}
-
-	err := imageMaster.Find("./images/sandwich.jpg", "./images/otuput", 2)
-
-	if err != nil {
-		fmt.Print(err)
 	}
 }
 

@@ -2,7 +2,10 @@ package tensorflowAPI
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,10 +18,10 @@ import (
 )
 
 const (
-	inception_model_path   = "tensorflowAPI/model/tensorflow_inception_graph.pb"
-	inception_model_labels = "tensorflowAPI/model/imagenet_comp_graph_label_strings.txt"
-	coco_model_path        = "tensorflowAPI/model/frozen_inference_graph.pb"
-	coco_labels_path       = "tensorflowAPI/model/coco_labels.txt"
+	INCEPTION_MODEL_PATH   = "tensorflowAPI/model/tensorflow_inception_graph.pb"
+	INCEPTION_MODEL_LABELS = "tensorflowAPI/model/imagenet_comp_graph_label_strings.txt"
+	COCO_MODEL_PATH        = "tensorflowAPI/model/frozen_inference_graph.pb"
+	COCO_LABELS_PATH       = "tensorflowAPI/model/coco_labels.txt"
 )
 
 var (
@@ -40,34 +43,44 @@ func NewTensorFlowClient(logger logging.ImageMasterLogger) *TensorFlowClient {
 		logger: logger,
 	}
 
-	graph = initModel(coco_model_path, logger)
-	labels = initLables(coco_labels_path, logger)
+	graph = initModel(COCO_MODEL_PATH, logger)
+	labels = initLables(COCO_LABELS_PATH, logger)
 	return tfClient
 }
 
-func (t *TensorFlowClient) ClassifyImage(imagebuff string) error {
+func (t *TensorFlowClient) ClassifyImage(img image.Image) error {
 
-	imageTensor, err := tf.NewTensor(imagebuff)
+	buf := new(bytes.Buffer)
+	err := jpeg.Encode(buf, img, nil)
 	if err != nil {
+		return fmt.Errorf("Error occurred during img buffering %w", err)
+	}
+
+	imageTensor, err := tf.NewTensor(buf.String())
+	if err != nil {
+		t.logger.Log("warning", "failed parsing imagebuffer to tensor", err)
 		return err
 	}
 	t.logger.Log("info", "image tensor created")
 
 	normalized, err := normalizeImage(imageTensor)
 	if err != nil {
+		t.logger.Log("warning", "failed normalizing tensor", err)
 		return err
 	}
 
-	t.logger.Log("info", "image normalzied")
-
+	t.logger.Log("info", "image normalized")
 	probabilities, _, _, err := t.getProbabilities(normalized)
 	if err != nil {
+		t.logger.Log("warning", "failed calculating probabilities", err)
 		return err
 	}
 
-	t.logger.Log("info", "probabilities gotten.")
-	top5 := getTopLabel(labels, probabilities)
-	t.logger.Log("info", "top 5 matches are", top5)
+	t.logger.Log("info", "probabilities received.")
+
+	count := 10
+	topTen := getTopLabels(labels, probabilities, count)
+	t.logger.Log("info", "top matches are", count, topTen)
 	return nil
 }
 
@@ -137,7 +150,6 @@ func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 	}
 
 	fmt.Println("Normalized image is:")
-	fmt.Print(normalized)
 	return normalized[0], nil
 }
 
@@ -190,7 +202,7 @@ func (t *TensorFlowClient) getProbabilities(tensor *tf.Tensor) ([]float32, []flo
 	return probabilities, classes, boxes, nil
 }
 
-func getTopLabel(labels []string, probabilities []float32) []Label {
+func getTopLabels(labels []string, probabilities []float32, count int) []Label {
 	var resultLabels []Label
 	for i, p := range probabilities {
 		if i >= len(labels) {
@@ -203,6 +215,5 @@ func getTopLabel(labels []string, probabilities []float32) []Label {
 		return resultLabels[i].Probability > resultLabels[j].Probability
 	})
 
-	fmt.Println(resultLabels[:5])
-	return resultLabels[:5]
+	return resultLabels[:count]
 }

@@ -1,16 +1,23 @@
 package app
 
 import (
-	"bytes"
 	"fmt"
 	"image"
+	"os"
+	"path/filepath"
+	"sync"
 
 	"image/color"
-	"image/jpeg"
 
 	"github.com/l-pavlova/image-master/imagemanip"
 	"github.com/l-pavlova/image-master/logging"
 	"github.com/l-pavlova/image-master/tensorflowAPI"
+)
+
+const (
+	BOUND_PATH          string = "./images/"
+	OUT_PATH            string = "./output/" //todo: customize
+	DEFAULT_CONCURRENCY int    = 10
 )
 
 // type changeable used for assertion on parsed images
@@ -19,22 +26,46 @@ type Changeable interface {
 }
 
 type ImageMaster struct {
-	tfClient TensorFlowClient
-	logger   *logging.ImageMasterLogger
+	//	tfClient    TensorFlowClient
+	logger      *logging.ImageMasterLogger
+	imageList   []string
+	mu          sync.Mutex
+	concurrency int
 }
 
 type TensorFlowClient interface {
-	ClassifyImage(buffer string) error
+	ClassifyImage(image image.Image) error
 }
 
 func NewImageMaster() *ImageMaster {
 	imagemaster := &ImageMaster{
-		tfClient: nil,
-		logger:   logging.NewImageMasterLogger(),
+		//tfClient:    nil,
+		imageList:   make([]string, 0, 5),
+		logger:      logging.NewImageMasterLogger(),
+		concurrency: DEFAULT_CONCURRENCY,
 	}
 
-	imagemaster.tfClient = &*tensorflowAPI.NewTensorFlowClient(*imagemaster.logger)
+	//imagemaster.tfClient = &*tensorflowAPI.NewTensorFlowClient(*imagemaster.logger)
 	return imagemaster
+}
+
+// scan directory iterates over the directory of passed images, and saves all of their paths in imageList to later convert
+func (i *ImageMaster) scanDirectory(directory string) {
+	err := filepath.Walk(directory,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				i.imageList = append(i.imageList, path)
+				i.logger.Log("info", "adding image to process from path: ", path, info.Size())
+			}
+
+			return nil
+		})
+	if err != nil {
+		i.logger.Log("error", err.Error())
+	}
 }
 
 // The GrayScale function uses a standart method from the image library  to convert an image to GrayScale and saves it to the outPath directory
@@ -99,6 +130,7 @@ func (i *ImageMaster) Smoothen(inPath, outPath string, timesToRepeat int) error 
 	return nil
 }
 
+// apply sharpening via morphological operations
 func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
 
 	img, err := imagemanip.ReadFrom(inPath)
@@ -123,21 +155,58 @@ func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
 	return nil
 }
 
-func (i *ImageMaster) Find(inPath, outPath string, timesToRepeat int) error {
-	img, err := imagemanip.ReadFrom(inPath)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img parsing %w", err)
-	}
+// the folder passed to the docker image is mounted to the //images folder inside the container, so we perform our operations inside there
+func (i *ImageMaster) Find(object string) error {
 
-	buf := new(bytes.Buffer)
-	err = jpeg.Encode(buf, img, nil)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img buffering %w", err)
-	}
+	//if cached return from cache
+	i.execute(func(img image.Image) {
+		//initialize a new client for each, but read the graph and pass it once to all?
+		tfClient := tensorflowAPI.NewTensorFlowClient(*logging.NewImageMasterLogger())
+		err := tfClient.ClassifyImage(img)
+		if err != nil {
+			fmt.Println("Error ocurred %w", err)
+		}
+	})
 
-	err = i.tfClient.ClassifyImage(buf.String())
-	if err != nil {
-		return fmt.Errorf("Error occurred during img clasification %w", err)
+	return nil
+}
+
+func (i *ImageMaster) execute(operation func(image.Image)) error {
+	//if cached return from cache
+	i.scanDirectory(BOUND_PATH)
+	limitChan := make(chan struct{}, i.concurrency)
+
+	var wg sync.WaitGroup
+	for j := 0; j < len(i.imageList); j++ {
+		wg.Add(1)
+		limitChan <- struct{}{}
+		go func() {
+			defer func() {
+				<-limitChan
+			}()
+
+			i.mu.Lock()
+			if len(i.imageList) == 0 {
+				i.logger.Log("info", "no more images to process")
+				wg.Done()
+				i.mu.Unlock()
+				close(limitChan)
+				return
+			}
+
+			imagePath := i.imageList[0]
+			i.imageList = i.imageList[1:]
+			i.mu.Unlock()
+
+			img, err := imagemanip.ReadFrom(imagePath)
+			if err != nil {
+				i.logger.Log("error", "Error occurred during img parsing %w", err)
+			}
+
+			operation(img)
+			//initialize a new client for each, but read the graph and pass it once to all?
+			wg.Done()
+		}()
 	}
 
 	return nil
