@@ -17,7 +17,7 @@ var (
 
 func loadModel() (*tf.Graph, []string, error) {
 	// Load inception model
-	model, err := ioutil.ReadFile("/model/tensorflow_inception_graph.pb")
+	model, err := ioutil.ReadFile("tensorflowAPI/model/tensorflow_inception_graph.pb")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -26,7 +26,7 @@ func loadModel() (*tf.Graph, []string, error) {
 		return nil, nil, err
 	}
 	// Load labels
-	labelsFile, err := os.Open("/model/imagenet_comp_graph_label_strings.txt")
+	labelsFile, err := os.Open("tensorflowAPI/model/imagenet_comp_graph_label_strings.txt")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -45,27 +45,32 @@ func loadModel() (*tf.Graph, []string, error) {
 	return graph, labels, nil
 }
 
-func ClassifyImage(imagebuff []byte) error {
+func ClassifyImage(imagebuff string) error {
 
 	imageTensor, err := tf.NewTensor(imagebuff)
 	if err != nil {
 		return err
 	}
+	fmt.Println("image tensor created")
 
 	normalized, err := normalizeImage(imageTensor)
 	if err != nil {
 		return err
 	}
+	fmt.Println("image normalzied, ", normalized)
 
 	model, labels, err := loadModel()
 	if err != nil {
 		return err
 	}
+	fmt.Println("labels retrieved: ", labels[0])
 
 	res, err := getProbabilities(model, normalized)
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("probabilities gotten: ", res.Value())
 
 	_ = labels
 	fmt.Println(res.Value())
@@ -78,11 +83,13 @@ func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 		return nil, err
 	}
 
+	fmt.Println("Starting new tf session")
 	session, err := tf.NewSession(graph, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("Normalizing image")
 	normalized, err := session.Run(
 		map[tf.Output]*tf.Tensor{
 			input: tensor,
@@ -92,9 +99,12 @@ func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 		},
 		nil)
 	if err != nil {
+		fmt.Print(err)
 		return nil, err
 	}
 
+	fmt.Println("Normalized image is:")
+	fmt.Print(normalized)
 	return normalized[0], nil
 }
 
@@ -104,7 +114,7 @@ func getNormalizedGraph() (graph *tf.Graph, input, output tf.Output, err error) 
 	input = op.Placeholder(s, tf.String)
 
 	decode := op.DecodeJpeg(s, input, op.DecodeJpegChannels(3))
-
+	fmt.Println("unifying for inception")
 	output = op.Sub(s,
 		// make it 224x224: inception specific
 		op.ResizeBilinear(s,
@@ -115,7 +125,9 @@ func getNormalizedGraph() (graph *tf.Graph, input, output tf.Output, err error) 
 		// mean = 117: inception specific
 		op.Const(s.SubScope("mean"), float32(117)))
 	graph, err = s.Finalize()
-
+	fmt.Println("unified ")
+	fmt.Println(input)
+	fmt.Println(output)
 	return graph, input, output, err
 }
 

@@ -22,15 +22,20 @@ RUN git clone --branch=v2.11.0 https://github.com/tensorflow/tensorflow.git /go/
     && go mod tidy \
     && go test ./...
 
-#End: install tensorflow
-RUN mkdir -p /model && \
-  curl -o /model/inception5h.zip -s "http://download.tensorflow.org/models/inception5h.zip" && \
-  unzip /model/inception5h.zip -d /model
+# #End: install tensorflow
+# RUN mkdir -p /model && \
+#   curl -o /model/inception5h.zip -s "http://download.tensorflow.org/models/inception5h.zip" && \
+#   unzip /model/inception5h.zip -d /model
 
-WORKDIR /go/src/imaster
+
+WORKDIR /app
 COPY . .
 
-# Install the app
-RUN go build -o /build/imaster
+RUN ls -R
+RUN pwd
 
-CMD ["/build/imaster", "-p"]
+
+# Install the app
+RUN go build -o imagemaster
+
+CMD [ "/app/imagemaster", "param" ]

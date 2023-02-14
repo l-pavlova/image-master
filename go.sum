@@ -4,6 +4,8 @@ github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaS
 github.com/google/go-cmp v0.5.5 h1:Khx7svrCpmxxtHBq5j2mp/xVjsi8hQMfNLvJFAlrGgU=
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/hybridgroup/mjpeg v0.0.0-20140228234708-4680f319790e/go.mod h1:eagM805MRKrioHYuU7iKLUyFPVKqVV6um5DAvCkUtXs=
+github.com/l-pavlova/image-master v0.0.0-20230212222721-a0349a39711b h1:HB7/2EX58RIxq5XFvVNghT+wZyHiaxWZ5JDvdqNG96A=
+github.com/l-pavlova/image-master v0.0.0-20230212222721-a0349a39711b/go.mod h1:id4mBMdWVy7QimwNH3WneGZWoYTq/LLZFW/IhRq45To=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 gocv.io/x/gocv v0.32.1 h1:BC9hHs5+47nVgySUFVKntc6RsF3SULFzqk6OV9xz+C0=
 gocv.io/x/gocv v0.32.1/go.mod h1:oc6FvfYqfBp99p+yOEzs9tbYF9gOrAQSeL/dyIPefJU=

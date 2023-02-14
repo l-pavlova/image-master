@@ -122,6 +122,10 @@ func (i *ImageMaster) Find(inPath, outPath string, timesToRepeat int) error {
 		return fmt.Errorf("Error occurred during img buffering %w", err)
 	}
 
-	tensorflowAPI.ClassifyImage(buf.Bytes())
+	err = tensorflowAPI.ClassifyImage(buf.String())
+	if err != nil {
+		return fmt.Errorf("Error occurred during img clasification %w", err)
+	}
+
 	return nil
 }
