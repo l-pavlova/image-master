@@ -158,42 +158,47 @@ func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
 // the folder passed to the docker image is mounted to the //images folder inside the container, so we perform our operations inside there
 func (i *ImageMaster) Find(object string) error {
 
+	//todo: create an array of clients and classify with each a single image
+	tfClients := make([]TensorFlowClient, len(i.imageList))
 	//if cached return from cache
 	i.execute(func(img image.Image) {
 		//initialize a new client for each, but read the graph and pass it once to all?
 		tfClient := tensorflowAPI.NewTensorFlowClient(*logging.NewImageMasterLogger())
+		tfClients = append(tfClients, tfClient)
 		err := tfClient.ClassifyImage(img)
 		if err != nil {
 			fmt.Println("Error ocurred %w", err)
 		}
-	})
+	}, tfClients)
 
 	return nil
 }
 
-func (i *ImageMaster) execute(operation func(image.Image)) error {
+func (i *ImageMaster) execute(operation func(image.Image), tfClients []TensorFlowClient) error {
 	//if cached return from cache
 	i.scanDirectory(BOUND_PATH)
 	limitChan := make(chan struct{}, i.concurrency)
 
 	var wg sync.WaitGroup
+
+	i.logger.Log("info", "images to process count: ", len(i.imageList))
+
 	for j := 0; j < len(i.imageList); j++ {
 		wg.Add(1)
 		limitChan <- struct{}{}
-		go func() {
+		go func(k int) {
 			defer func() {
+				i.logger.Log("info", "Finished retrieving probabilties on iteration: ", k)
 				<-limitChan
 			}()
 
-			i.mu.Lock()
 			if len(i.imageList) == 0 {
 				i.logger.Log("info", "no more images to process")
 				wg.Done()
-				i.mu.Unlock()
-				close(limitChan)
 				return
 			}
 
+			i.mu.Lock()
 			imagePath := i.imageList[0]
 			i.imageList = i.imageList[1:]
 			i.mu.Unlock()
@@ -206,8 +211,9 @@ func (i *ImageMaster) execute(operation func(image.Image)) error {
 			operation(img)
 			//initialize a new client for each, but read the graph and pass it once to all?
 			wg.Done()
-		}()
+		}(j)
 	}
+	close(limitChan)
 
 	return nil
 }

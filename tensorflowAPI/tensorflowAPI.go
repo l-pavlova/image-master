@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/jpeg"
 	"io/ioutil"
-	"log"
 	"os"
 	"sort"
 
@@ -24,10 +23,7 @@ const (
 	COCO_LABELS_PATH       = "tensorflowAPI/model/coco_labels.txt"
 )
 
-var (
-	graph  *tf.Graph
-	labels []string
-)
+var ()
 
 type Label struct {
 	Label       string
@@ -36,6 +32,8 @@ type Label struct {
 
 type TensorFlowClient struct {
 	logger logging.ImageMasterLogger
+	graph  *tf.Graph
+	labels []string
 }
 
 func NewTensorFlowClient(logger logging.ImageMasterLogger) *TensorFlowClient {
@@ -43,8 +41,8 @@ func NewTensorFlowClient(logger logging.ImageMasterLogger) *TensorFlowClient {
 		logger: logger,
 	}
 
-	graph = initModel(COCO_MODEL_PATH, logger)
-	labels = initLables(COCO_LABELS_PATH, logger)
+	tfClient.graph = initModel(COCO_MODEL_PATH, logger)
+	tfClient.labels = initLables(COCO_LABELS_PATH, logger)
 	return tfClient
 }
 
@@ -79,7 +77,7 @@ func (t *TensorFlowClient) ClassifyImage(img image.Image) error {
 	t.logger.Log("info", "probabilities received.")
 
 	count := 10
-	topTen := getTopLabels(labels, probabilities, count)
+	topTen := getTopLabels(t.labels, probabilities, count)
 	t.logger.Log("info", "top matches are", count, topTen)
 	return nil
 }
@@ -95,12 +93,12 @@ func initModel(modelPath string, logger logging.ImageMasterLogger) *tf.Graph {
 		return nil
 	}
 
-	logger.Log("info", "retrieved labels count: ", len(labels))
 	return graph
 }
 
 func initLables(labelsFilePath string, logger logging.ImageMasterLogger) []string {
 	// Load labels
+	labels := make([]string, 0, 10)
 	labelsFile, err := os.Open(labelsFilePath)
 	if err != nil {
 		return nil
@@ -165,18 +163,18 @@ func getNormalizedGraph() (graph *tf.Graph, input, output tf.Output, err error) 
 }
 
 func (t *TensorFlowClient) getProbabilities(tensor *tf.Tensor) ([]float32, []float32, [][]float32, error) {
-	session, err := tf.NewSession(graph, nil)
+	session, err := tf.NewSession(t.graph, nil)
 	if err != nil {
-		log.Fatal(err)
+		t.logger.Log("error", err.Error())
 	}
 	defer session.Close()
 
-	inputop := graph.Operation("image_tensor")
+	inputop := t.graph.Operation("image_tensor")
 	// Output ops
-	o1 := graph.Operation("detection_boxes")
-	o2 := graph.Operation("detection_scores")
-	o3 := graph.Operation("detection_classes")
-	o4 := graph.Operation("num_detections")
+	o1 := t.graph.Operation("detection_boxes")
+	o2 := t.graph.Operation("detection_scores")
+	o3 := t.graph.Operation("detection_classes")
+	o4 := t.graph.Operation("num_detections")
 
 	output, err := session.Run(
 		map[tf.Output]*tf.Tensor{
@@ -189,9 +187,9 @@ func (t *TensorFlowClient) getProbabilities(tensor *tf.Tensor) ([]float32, []flo
 			o4.Output(0),
 		},
 		nil)
+
 	if err != nil {
-		fmt.Print(err.Error())
-		log.Fatal(err)
+		t.logger.Log("error", err.Error())
 	}
 
 	// Outputs
