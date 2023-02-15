@@ -6,13 +6,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"image/color"
+	"image/draw"
 
 	"github.com/l-pavlova/image-master/imagemanip"
 	"github.com/l-pavlova/image-master/logging"
 	"github.com/l-pavlova/image-master/tensorflowAPI"
+	"golang.org/x/image/colornames"
 )
 
 const (
@@ -35,7 +38,7 @@ type ImageMaster struct {
 }
 
 type TensorFlowClient interface {
-	ClassifyImage(image image.Image) error
+	ClassifyImage(image image.Image) ([]tensorflowAPI.Label, []float32, [][]float32, error)
 }
 
 func NewImageMaster() *ImageMaster {
@@ -73,30 +76,27 @@ func (i *ImageMaster) scanDirectory(directory string) {
 // For a realistic RGB -> grayscale conversion, the following weights have to be used: Y = 0.299 * R +  0.587 * G + 0.114 * B
 // inPath is the path from which an image is taken
 // outPath is the path where the image is saved
-func (i *ImageMaster) GrayScale(inPath, outPath string) error {
+func (im *ImageMaster) GrayScale() error {
 
-	img, err := imagemanip.ReadFrom(inPath)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img parsing %w", err)
-	}
-	bounds := img.Bounds()
-	width, height := bounds.Max.X, bounds.Max.Y
-	generated := imagemanip.GenerateNew(width, height)
-	target, ok := generated.(Changeable)
-	if !ok {
-		return fmt.Errorf("%s", "Error occurred during image conversion, cannot filter this image.")
-	}
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			target.Set(x, y, color.Gray16Model.Convert(img.At(x, y)))
+	im.execute(func(img image.Image, imagePath string) {
+		bounds := img.Bounds()
+		width, height := bounds.Max.X, bounds.Max.Y
+		generated := imagemanip.GenerateNew(width, height)
+		target, ok := generated.(Changeable)
+		if !ok {
+			im.logger.Log("error", "Error occurred during image conversion, cannot filter this image.")
 		}
-	}
-	res, err := imagemanip.SaveTo(outPath, filepath.Base(inPath), target.(image.Image))
-	if err != nil {
-		return fmt.Errorf("Error occurred during img saving %w", err)
-	}
+		for y := 0; y < height; y++ {
+			for x := 0; x < width; x++ {
+				target.Set(x, y, color.Gray16Model.Convert(img.At(x, y)))
+			}
+		}
+		_, err := imagemanip.SaveTo(path.Join(BOUND_PATH, "output"), filepath.Base(imagePath), target.(image.Image))
+		if err != nil {
+			im.logger.Log("error", "Error occurred during img saving %w", err)
+		}
+	})
 
-	fmt.Println(res)
 	return nil
 }
 
@@ -130,38 +130,68 @@ func (im *ImageMaster) Smoothen(timesToRepeat int) error {
 }
 
 // apply sharpening via morphological operations
-func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
+func (im *ImageMaster) Sharpen() error {
 
-	img, err := imagemanip.ReadFrom(inPath)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img parsing %w", err)
-	}
+	im.execute(func(img image.Image, imagePath string) {
+		res := imagemanip.MorphGradient(img)
 
-	res := imagemanip.MorphGradient(img)
-
-	_, err = imagemanip.SaveTo(outPath, filepath.Base(inPath), res)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img saving %w", err)
-	}
-
+		_, err := imagemanip.SaveTo(path.Join(BOUND_PATH, "output"), filepath.Base(imagePath), res)
+		if err != nil {
+			im.logger.Log("error", "Error occurred during img saving %w", err)
+		}
+	})
 	return nil
 }
 
 // the folder passed to the docker image is mounted to the //images folder inside the container, so we perform our operations inside there
-func (i *ImageMaster) Find(object string) error {
+func (im *ImageMaster) Find(object string) error {
 
 	//if cached return from cache
-	i.execute(func(img image.Image, path string) {
-		//initialize a new client for each, but read the graph and pass it once to all?
+	im.execute(func(img image.Image, imagePath string) {
+		//todo: optimize model to be loaded just once
 		tfClient := tensorflowAPI.NewTensorFlowClient(*logging.NewImageMasterLogger())
-		//tfClients = append(tfClients, tfClient)
-		err := tfClient.ClassifyImage(img)
+		labels, _, _, err := tfClient.ClassifyImage(img)
 		if err != nil {
-			fmt.Println("Error ocurred %w", err)
+			im.logger.Log("error", err.Error())
+			return
+		}
+
+		//1. stash labels in db to use next time its called with this image path
+		//2. foreach the labels and if even partial match to word, store image in outputs
+		isMatch := false
+		for _, label := range labels {
+			if strings.Contains(label.Label, object) {
+				isMatch = label.Probability >= 0.4 //if it's less it's probably not really the thing
+			}
+		}
+
+		if isMatch {
+			_, err := imagemanip.SaveTo(path.Join(BOUND_PATH, "output"), filepath.Base(imagePath), img)
+			if err != nil {
+				im.logger.Log("error", "Error occurred during img saving %w", err)
+			}
 		}
 	})
 
 	return nil
+}
+
+func pointOutMatches(img image.Image, labels []string, classes []float32, boxes [][]float32) {
+	bounds := img.Bounds()
+
+	res := image.NewRGBA(bounds)
+	draw.Draw(res, bounds, img, bounds.Min, draw.Src)
+
+	for ind, _ := range labels {
+		x1 := float32(res.Bounds().Max.X) * boxes[ind][1]
+		x2 := float32(res.Bounds().Max.X) * boxes[ind][3]
+		y1 := float32(res.Bounds().Max.Y) * boxes[ind][0]
+		y2 := float32(res.Bounds().Max.Y) * boxes[ind][2]
+
+		imagemanip.Rect(res, int(x1), int(y1), int(x2), int(y2), 4, colornames.Map[colornames.Names[int(classes[ind])]])
+		ind++
+	}
+
 }
 
 func (im *ImageMaster) execute(operation func(image.Image, string)) error {

@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	INCEPTION_MODEL_PATH   = "tensorflowAPI/model/tensorflow_inception_graph.pb"
-	INCEPTION_MODEL_LABELS = "tensorflowAPI/model/imagenet_comp_graph_label_strings.txt"
-	COCO_MODEL_PATH        = "tensorflowAPI/model/frozen_inference_graph.pb"
-	COCO_LABELS_PATH       = "tensorflowAPI/model/coco_labels.txt"
+	INCEPTION_MODEL_PATH          = "tensorflowAPI/model/tensorflow_inception_graph.pb"
+	INCEPTION_MODEL_LABELS        = "tensorflowAPI/model/imagenet_comp_graph_label_strings.txt"
+	COCO_MODEL_PATH               = "tensorflowAPI/model/frozen_inference_graph.pb"
+	COCO_LABELS_PATH              = "tensorflowAPI/model/coco_labels.txt"
+	DEPTH_OF_LABEL_CLASSIFICATION = 5
 )
 
 var ()
@@ -46,40 +47,39 @@ func NewTensorFlowClient(logger logging.ImageMasterLogger) *TensorFlowClient {
 	return tfClient
 }
 
-func (t *TensorFlowClient) ClassifyImage(img image.Image) error {
+func (t *TensorFlowClient) ClassifyImage(img image.Image) ([]Label, []float32, [][]float32, error) {
 
 	buf := new(bytes.Buffer)
 	err := jpeg.Encode(buf, img, nil)
 	if err != nil {
-		return fmt.Errorf("Error occurred during img buffering %w", err)
+		return nil, nil, nil, fmt.Errorf("Error occurred during img buffering %w", err)
 	}
 
 	imageTensor, err := tf.NewTensor(buf.String())
 	if err != nil {
 		t.logger.Log("warning", "failed parsing imagebuffer to tensor", err)
-		return err
+		return nil, nil, nil, err
 	}
 	t.logger.Log("info", "image tensor created")
 
 	normalized, err := normalizeImage(imageTensor)
 	if err != nil {
 		t.logger.Log("warning", "failed normalizing tensor", err)
-		return err
+		return nil, nil, nil, err
 	}
 
 	t.logger.Log("info", "image normalized")
-	probabilities, _, _, err := t.getProbabilities(normalized)
+	probabilities, classes, boxes, err := t.getProbabilities(normalized)
 	if err != nil {
 		t.logger.Log("warning", "failed calculating probabilities", err)
-		return err
+		return nil, nil, nil, err
 	}
 
 	t.logger.Log("info", "probabilities received.")
 
-	count := 10
-	topTen := getTopLabels(t.labels, probabilities, count)
-	t.logger.Log("info", "top matches are", count, topTen)
-	return nil
+	topN := getTopLabels(t.labels, probabilities, DEPTH_OF_LABEL_CLASSIFICATION)
+	t.logger.Log("info", "top matches are", DEPTH_OF_LABEL_CLASSIFICATION, topN)
+	return topN, classes, boxes, nil
 }
 
 func initModel(modelPath string, logger logging.ImageMasterLogger) *tf.Graph {
@@ -126,14 +126,12 @@ func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 		return nil, err
 	}
 
-	fmt.Println("Starting new tf session")
 	session, err := tf.NewSession(graph, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer session.Close()
 
-	fmt.Println("Normalizing image")
 	normalized, err := session.Run(
 		map[tf.Output]*tf.Tensor{
 			input: tensor,
@@ -147,7 +145,6 @@ func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 		return nil, err
 	}
 
-	fmt.Println("Normalized image is:")
 	return normalized[0], nil
 }
 

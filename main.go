@@ -30,11 +30,11 @@ func main() {
 	}
 	switch command {
 	case "-grayscale":
-		//imageMaster.GrayScale()
+		imageMaster.GrayScale()
 	case "-smoothen":
 		imageMaster.Smoothen(10)
 	case "-sharpen":
-		//imageMaster.GrayScale()
+		imageMaster.Sharpen()
 	case "-denoise":
 
 	}
