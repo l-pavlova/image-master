@@ -32,7 +32,7 @@ func main() {
 	case "-grayscale":
 		//imageMaster.GrayScale()
 	case "-smoothen":
-		//imageMaster.GrayScale()
+		imageMaster.Smoothen(10)
 	case "-sharpen":
 		//imageMaster.GrayScale()
 	case "-denoise":

@@ -41,6 +41,7 @@ func SaveTo(filePath, fileName string, img image.Image) (bool, error) {
 	return true, nil
 }
 
+// util func that creates an image with given size
 func GenerateNew(width, height int) image.Image {
 
 	img := image.NewRGBA(image.Rect(0, 0, width, height))

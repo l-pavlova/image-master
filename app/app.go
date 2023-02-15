@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 
@@ -90,7 +91,7 @@ func (i *ImageMaster) GrayScale(inPath, outPath string) error {
 			target.Set(x, y, color.Gray16Model.Convert(img.At(x, y)))
 		}
 	}
-	res, err := imagemanip.SaveTo(outPath, "test.jpg", target.(image.Image))
+	res, err := imagemanip.SaveTo(outPath, filepath.Base(inPath), target.(image.Image))
 	if err != nil {
 		return fmt.Errorf("Error occurred during img saving %w", err)
 	}
@@ -103,30 +104,28 @@ func (i *ImageMaster) GrayScale(inPath, outPath string) error {
 // inPath is the path from which an image is taken
 // outPath is the path where the image is saved
 // timesToRepeat is an integer value, signaling how many times the blur would be applied to the image a.k.a filter strength
-func (i *ImageMaster) Smoothen(inPath, outPath string, timesToRepeat int) error {
-	img, err := imagemanip.ReadFrom(inPath)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img parsing %w", err)
-	}
+func (im *ImageMaster) Smoothen(timesToRepeat int) error {
 
-	res, err := imagemanip.ApplyGaussian(img)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img smoothing with gaussian filter %w", err)
-	}
-
-	for i := 0; i < timesToRepeat-1; i++ {
-		tempRes, err := imagemanip.ApplyGaussian(res)
+	im.execute(func(img image.Image, imagePath string) {
+		res, err := imagemanip.ApplyGaussian(img)
 		if err != nil {
-			return fmt.Errorf("Error occurred during img smoothing with gaussian filter on iteration %d %w", i, err)
+			im.logger.Log("error", "Error occurred during img smoothing with gaussian filter %w", err.Error())
 		}
 
-		res = tempRes
-	}
+		for i := 0; i < timesToRepeat-1; i++ {
+			tempRes, err := imagemanip.ApplyGaussian(res)
+			if err != nil {
+				im.logger.Log("error", "Error occurred during img smoothing with gaussian filter on iteration %d %w", i, err)
+			}
 
-	_, err = imagemanip.SaveTo(outPath, "testGaussian.jpg", res)
-	if err != nil {
-		return fmt.Errorf("Error occurred during img saving %w", err)
-	}
+			res = tempRes
+		}
+		_, err = imagemanip.SaveTo(path.Join(BOUND_PATH, "output"), filepath.Base(imagePath), res)
+		if err != nil {
+			im.logger.Log("error", "Error occurred during img saving %w", err)
+		}
+	})
+
 	return nil
 }
 
@@ -139,15 +138,8 @@ func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
 	}
 
 	res := imagemanip.MorphGradient(img)
-	// for i := 0; i < timesToRepeat-1; i++ {
-	// 	tempRes := imagemanip.MorphGradient(res)
-	// 	if err != nil {
-	// 		return fmt.Errorf("Error occurred during img smoothing with gaussian filter on iteration %d %w", i, err)
-	// 	}
-	// 	res = tempRes
-	// }
 
-	_, err = imagemanip.SaveTo(outPath, "testSharpen.jpg", res)
+	_, err = imagemanip.SaveTo(outPath, filepath.Base(inPath), res)
 	if err != nil {
 		return fmt.Errorf("Error occurred during img saving %w", err)
 	}
@@ -158,61 +150,60 @@ func (i *ImageMaster) Sharpen(inPath, outPath string, timesToRepeat int) error {
 // the folder passed to the docker image is mounted to the //images folder inside the container, so we perform our operations inside there
 func (i *ImageMaster) Find(object string) error {
 
-	//todo: create an array of clients and classify with each a single image
-	tfClients := make([]TensorFlowClient, len(i.imageList))
 	//if cached return from cache
-	i.execute(func(img image.Image) {
+	i.execute(func(img image.Image, path string) {
 		//initialize a new client for each, but read the graph and pass it once to all?
 		tfClient := tensorflowAPI.NewTensorFlowClient(*logging.NewImageMasterLogger())
-		tfClients = append(tfClients, tfClient)
+		//tfClients = append(tfClients, tfClient)
 		err := tfClient.ClassifyImage(img)
 		if err != nil {
 			fmt.Println("Error ocurred %w", err)
 		}
-	}, tfClients)
+	})
 
 	return nil
 }
 
-func (i *ImageMaster) execute(operation func(image.Image), tfClients []TensorFlowClient) error {
+func (im *ImageMaster) execute(operation func(image.Image, string)) error {
 	//if cached return from cache
-	i.scanDirectory(BOUND_PATH)
-	limitChan := make(chan struct{}, i.concurrency)
+	im.scanDirectory(BOUND_PATH)
+	limitChan := make(chan struct{}, im.concurrency)
 
-	var wg sync.WaitGroup
+	im.logger.Log("info", "images to process count: ", len(im.imageList))
 
-	i.logger.Log("info", "images to process count: ", len(i.imageList))
-
-	for j := 0; j < len(i.imageList); j++ {
+	wg := &sync.WaitGroup{}
+	imageCount := len(im.imageList)
+	for j := 0; j < imageCount; j++ {
 		wg.Add(1)
 		limitChan <- struct{}{}
-		go func(k int) {
+		go func() {
 			defer func() {
-				i.logger.Log("info", "Finished retrieving probabilties on iteration: ", k)
 				<-limitChan
 			}()
-
-			if len(i.imageList) == 0 {
-				i.logger.Log("info", "no more images to process")
-				wg.Done()
+			if len(im.imageList) == 0 {
+				im.logger.Log("info", "no more images to process")
 				return
 			}
 
-			i.mu.Lock()
-			imagePath := i.imageList[0]
-			i.imageList = i.imageList[1:]
-			i.mu.Unlock()
+			im.mu.Lock()
+			imagePath := im.imageList[0]
+			im.imageList = im.imageList[1:]
+			im.mu.Unlock()
 
+			fmt.Println(imagePath)
 			img, err := imagemanip.ReadFrom(imagePath)
 			if err != nil {
-				i.logger.Log("error", "Error occurred during img parsing %w", err)
+				im.logger.Log("error", "Error occurred during img parsing %w", err)
 			}
 
-			operation(img)
-			//initialize a new client for each, but read the graph and pass it once to all?
+			operation(img, imagePath)
 			wg.Done()
-		}(j)
+			//initialize a new client for each, but read the graph and pass it once to all?
+
+		}()
 	}
+
+	wg.Wait()
 	close(limitChan)
 
 	return nil
