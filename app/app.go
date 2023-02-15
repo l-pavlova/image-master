@@ -14,6 +14,7 @@ import (
 
 	"github.com/l-pavlova/image-master/imagemanip"
 	"github.com/l-pavlova/image-master/logging"
+	"github.com/l-pavlova/image-master/mongo"
 	"github.com/l-pavlova/image-master/tensorflowAPI"
 	"golang.org/x/image/colornames"
 )
@@ -29,12 +30,19 @@ type Changeable interface {
 	Set(x, y int, c color.Color)
 }
 
+type MongoClient interface {
+	GetAllImageClassifications() (ics []mongo.ImageClassification, err error)
+	AddImageClassification(imagePath string, probabilities []string) error
+	GetImageClassification(imagePath string) (ic mongo.ImageClassification, ok bool)
+}
+
 type ImageMaster struct {
 	//	tfClient    TensorFlowClient
 	logger      *logging.ImageMasterLogger
 	imageList   []string
 	mu          sync.Mutex
 	concurrency int
+	mongo       MongoClient
 }
 
 type TensorFlowClient interface {
@@ -47,6 +55,7 @@ func NewImageMaster() *ImageMaster {
 		imageList:   make([]string, 0, 5),
 		logger:      logging.NewImageMasterLogger(),
 		concurrency: DEFAULT_CONCURRENCY,
+		mongo:       &mongo.NewMongo(),
 	}
 
 	//imagemaster.tfClient = &*tensorflowAPI.NewTensorFlowClient(*imagemaster.logger)
