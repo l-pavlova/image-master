@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
+	"sync"
 
 	tf "github.com/galeone/tensorflow/tensorflow/go"
 
@@ -24,11 +25,40 @@ const (
 	DEPTH_OF_LABEL_CLASSIFICATION = 5
 )
 
-var ()
+var lock = &sync.Mutex{}
 
 type Label struct {
 	Label       string
 	Probability float32
+}
+
+type Model struct {
+	graph  *tf.Graph
+	labels []string
+}
+
+var singleModelInstance *Model
+
+// a singleton is used for loading the heavy load data for the .pb tensorflow model and the labels for it, so all instances of the Tensorflow client are initialized with the same loaded data
+// instead of all of them loading the same thing over and over
+func getModelInstance() *Model {
+	if singleModelInstance == nil {
+		lock.Lock()
+		defer lock.Unlock()
+		if singleModelInstance == nil {
+			fmt.Println("Creating single instance now.")
+			singleModelInstance = &Model{
+				graph:  initModel(COCO_MODEL_PATH),
+				labels: initLables(COCO_LABELS_PATH),
+			}
+		} else {
+			fmt.Println("Single instance already created.")
+		}
+	} else {
+		fmt.Println("Single instance already created.")
+	}
+
+	return singleModelInstance
 }
 
 type TensorFlowClient struct {
@@ -42,11 +72,13 @@ func NewTensorFlowClient(logger logging.ImageMasterLogger) *TensorFlowClient {
 		logger: logger,
 	}
 
-	tfClient.graph = initModel(COCO_MODEL_PATH, logger)
-	tfClient.labels = initLables(COCO_LABELS_PATH, logger)
+	model := getModelInstance()
+	tfClient.graph = model.graph
+	tfClient.labels = model.labels
 	return tfClient
 }
 
+// function that takes an image and returns the top probable objects in it
 func (t *TensorFlowClient) ClassifyImage(img image.Image) ([]Label, []float32, [][]float32, error) {
 
 	buf := new(bytes.Buffer)
@@ -82,7 +114,8 @@ func (t *TensorFlowClient) ClassifyImage(img image.Image) ([]Label, []float32, [
 	return topN, classes, boxes, nil
 }
 
-func initModel(modelPath string, logger logging.ImageMasterLogger) *tf.Graph {
+// function to load the model .pb file
+func initModel(modelPath string) *tf.Graph {
 	model, err := ioutil.ReadFile(modelPath)
 	if err != nil {
 		return nil
@@ -96,7 +129,8 @@ func initModel(modelPath string, logger logging.ImageMasterLogger) *tf.Graph {
 	return graph
 }
 
-func initLables(labelsFilePath string, logger logging.ImageMasterLogger) []string {
+// function to Load labels
+func initLables(labelsFilePath string) []string {
 	// Load labels
 	labels := make([]string, 0, 10)
 	labelsFile, err := os.Open(labelsFilePath)
@@ -116,10 +150,11 @@ func initLables(labelsFilePath string, logger logging.ImageMasterLogger) []strin
 		return nil
 	}
 
-	logger.Log("info", "retrieved labels count: ", len(labels))
+	fmt.Println("info", "retrieved labels count: ", len(labels))
 	return labels
 }
 
+// function that takes the initial tensor with the image and formats it so that it is usable by the model
 func normalizeImage(tensor *tf.Tensor) (*tf.Tensor, error) {
 	graph, input, output, err := getNormalizedGraph()
 	if err != nil {

@@ -16,6 +16,7 @@ func MorphGradient(img image.Image) image.Image {
 	return final
 }
 
+// the dilate morphological operation
 func dilate(img image.Image, structElementSize int) image.Image {
 	bounds := img.Bounds()
 	dst := image.NewRGBA(bounds)
@@ -42,6 +43,7 @@ func dilate(img image.Image, structElementSize int) image.Image {
 	return dst
 }
 
+// the erode morphological operation
 func erode(img image.Image, structElementSize int) image.Image {
 	bounds := img.Bounds()
 	dst := image.NewRGBA(bounds)

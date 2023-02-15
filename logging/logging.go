@@ -25,6 +25,7 @@ type ImageMasterLogger struct {
 	errorLogger   *log.Logger
 }
 
+// initialize a new logger with log levels |info, warning, error|
 func NewImageMasterLogger() *ImageMasterLogger {
 	return &ImageMasterLogger{
 		infoLogger:    log.New(os.Stdout, "INFO: ", LstdFlags),
@@ -33,6 +34,7 @@ func NewImageMasterLogger() *ImageMasterLogger {
 	}
 }
 
+// Log function accepts as first string level = ("info", "warning", "error" and the corresponding implementation logs the message and the additional params from it to stdout)
 func (i *ImageMasterLogger) Log(level Level, message string, a ...any) {
 	switch level {
 	case Info:
