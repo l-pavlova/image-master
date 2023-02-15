@@ -37,5 +37,6 @@ RUN pwd
 
 # Install the app
 RUN go build -o imagemaster
+RUN go test
 
 ENTRYPOINT [ "/app/imagemaster" ]

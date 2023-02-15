@@ -63,3 +63,4 @@ func handleCommand(command string, imageMaster *app.ImageMaster) {
 }
 
 //docker run  --name cont -it --mount type=bind,source="$(pwd)",target=/app/images imasterps
+//mockgen -source="D:/go/src/GoCourse/image-master/image-master/app/app.go" -destination="D:/go/src/GoCourse/image-master/image-master/mocks/app.go"

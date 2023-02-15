@@ -36,6 +36,10 @@ type MongoClient interface {
 	GetImageClassification(imagePath string) (mongo.ImageClassification, error)
 }
 
+type TensorFlowClient interface {
+	ClassifyImage(image image.Image) ([]tensorflowAPI.Label, []float32, [][]float32, error)
+}
+
 type ImageMaster struct {
 	//	tfClient    TensorFlowClient
 	logger      *logging.ImageMasterLogger
@@ -43,10 +47,6 @@ type ImageMaster struct {
 	mu          sync.Mutex
 	concurrency int
 	mongo       MongoClient
-}
-
-type TensorFlowClient interface {
-	ClassifyImage(image image.Image) ([]tensorflowAPI.Label, []float32, [][]float32, error)
 }
 
 func NewImageMaster() *ImageMaster {
