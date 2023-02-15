@@ -55,7 +55,7 @@ func NewImageMaster() *ImageMaster {
 		imageList:   make([]string, 0, 5),
 		logger:      logging.NewImageMasterLogger(),
 		concurrency: DEFAULT_CONCURRENCY,
-		mongo:       &mongo.NewMongo(),
+		//mongo:       &mongo.NewMongo(),
 	}
 
 	//imagemaster.tfClient = &*tensorflowAPI.NewTensorFlowClient(*imagemaster.logger)
