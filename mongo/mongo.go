@@ -116,3 +116,28 @@ func DeleteMany(client *mongo.Client, ctx context.Context,
 	result, err = collection.DeleteMany(ctx, query)
 	return
 }
+
+func GetAll(client *mongo.Client, ctx context.Context,
+	dataBase, col string) []ImageClassification {
+	collection := client.Database(dataBase).Collection(col)
+
+	// Find all documents in the collection
+	cursor, err := collection.Find(context.Background(), nil)
+	if err != nil {
+		return nil
+	}
+	defer cursor.Close(context.Background())
+
+	classifications := make([]ImageClassification, 0)
+	// Iterate through the documents and retrieve images
+	for cursor.Next(context.Background()) {
+		var document ImageClassification
+		err := cursor.Decode(&document)
+		classifications = append(classifications, document)
+		if err != nil {
+			return nil
+		}
+	}
+
+	return classifications
+}

@@ -67,7 +67,9 @@ func handleCommand(command string, imageMaster *app.ImageMaster) {
 		fmt.Println("performing sharpen operation")
 		imageMaster.Sharpen()
 		break
-	case "-denoise":
+	case "-list-result-images":
+		fmt.Println("here's the images we have data about: ")
+		imageMaster.ListAll()
 	}
 }
 

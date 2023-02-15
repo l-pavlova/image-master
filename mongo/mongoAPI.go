@@ -81,13 +81,10 @@ func (m *Mongo) GetAllImageClassifications() (ics []ImageClassification, err err
 	}
 
 	defer Close(client, ctx, cancel)
-
-	filter := bson.D{{}}
-	imClassifications, err := Query(client, ctx, MONGO_DBNAME, COLLECTION_NAME, filter, nil)
-	if err != nil {
+	imClassifications := GetAll(client, ctx, MONGO_DBNAME, COLLECTION_NAME)
+	if imClassifications == nil {
 		return nil, err
 	}
 
-	imClassifications.Decode(&ics)
-	return ics, nil
+	return imClassifications, nil
 }

@@ -228,6 +228,17 @@ func (im *ImageMaster) ShowHelp() {
 	fmt.Println("-bye : exits the program.")
 }
 
+func (im *ImageMaster) ListAll() {
+	classfications, err := im.mongo.GetAllImageClassifications()
+	if err != nil {
+		im.logger.Log("error", "something went wrong, couldn't list images from db")
+	}
+
+	for _, cl := range classfications {
+		fmt.Println(cl.ImagePath)
+	}
+}
+
 func pointOutMatches(img image.Image, labels []string, classes []float32, boxes [][]float32) {
 	bounds := img.Bounds()
 
