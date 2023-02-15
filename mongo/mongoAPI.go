@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	MONGO_HOST      = "mongodb://localhost:27017"
-	MONGO_DBNAME    = "Classificator"
+	MONGO_HOST      = "mongodb+srv://admin:{pass}@cluster0.nvd7u.mongodb.net/ImageMasterDB?retryWrites=true&w=majority"
+	MONGO_DBNAME    = "ImageMasterDB"
 	COLLECTION_NAME = "ImageClassifications"
 )
 
@@ -57,9 +57,10 @@ func (m *Mongo) GetImageClassification(imagePath string) (ic ImageClassification
 	filter := bson.M{
 		"imagepath": imagePath,
 	}
-	fmt.Println("Filter: ", filter)
+	//fmt.Println("Filter: ", filter)
 
 	imClassification := FindOne(client, ctx, MONGO_DBNAME, COLLECTION_NAME, filter, nil)
+	//fmt.Print("im classification returned: ", imClassification)
 	err = imClassification.Decode(&ic)
 
 	fmt.Println("Result from db: ", ic)

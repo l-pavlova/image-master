@@ -52,10 +52,10 @@ func getModelInstance() *Model {
 				labels: initLables(COCO_LABELS_PATH),
 			}
 		} else {
-			fmt.Println("Single instance already created.")
+			//fmt.Println("Single instance already created.")
 		}
 	} else {
-		fmt.Println("Single instance already created.")
+		//fmt.Println("Single instance already created.")
 	}
 
 	return singleModelInstance

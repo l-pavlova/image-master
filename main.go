@@ -30,9 +30,10 @@ func main() {
 
 		input = strings.ToLower(input)
 		input = strings.TrimSpace(input)
-		fmt.Println(input)
+
 		handleCommand(input, imageMaster)
 		if strings.HasPrefix(input, "bye") {
+			fmt.Println("exiting now.")
 			os.Exit(0)
 		}
 	}
@@ -42,6 +43,7 @@ func main() {
 // function that executes the corresponding operation to the command
 func handleCommand(command string, imageMaster *app.ImageMaster) {
 	if strings.Contains(command, "-find=") {
+		fmt.Println("performing search operation")
 		objectToFind := strings.Split(command, "=")[1]
 		err := imageMaster.Find(objectToFind)
 		if err != nil {
@@ -51,14 +53,21 @@ func handleCommand(command string, imageMaster *app.ImageMaster) {
 	}
 
 	switch command {
+	case "-help":
+		imageMaster.ShowHelp()
+		break
 	case "-grayscale":
+		fmt.Println("performing grayscale operation")
 		imageMaster.GrayScale()
+		break
 	case "-smoothen":
+		fmt.Println("performing smoothen operation")
 		imageMaster.Smoothen(10)
 	case "-sharpen":
+		fmt.Println("performing sharpen operation")
 		imageMaster.Sharpen()
+		break
 	case "-denoise":
-
 	}
 }
 

@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -28,7 +29,13 @@ func Connect(uri string) (*mongo.Client, context.Context, context.CancelFunc, er
 
 	ctx, cancel := context.WithTimeout(context.Background(),
 		30*time.Second)
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	clientOptions := options.Client().ApplyURI(uri)
+
+	// Connect to MongoDB
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return client, ctx, cancel, err
 }
 

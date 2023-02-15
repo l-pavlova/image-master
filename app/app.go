@@ -164,13 +164,12 @@ func (im *ImageMaster) Sharpen() error {
 }
 
 // the folder passed to the docker image is mounted to the //images folder inside the container, so we perform our operations inside there
+// if cached return from cache
+// 1. stash labels in db to use next time its called with this image path
+// 2. foreach the labels and if even partial match to word, store image in outputs
 func (im *ImageMaster) Find(object string) error {
 
-	//if cached return from cache
-	//1. stash labels in db to use next time its called with this image path
-	//2. foreach the labels and if even partial match to word, store image in outputs
 	outPath := getPath("found")
-
 	im.execute(func(img image.Image, imagePath string) {
 		if strings.HasPrefix(imagePath, outPath) { //dont process images already grayed
 			return
@@ -218,6 +217,15 @@ func (im *ImageMaster) Find(object string) error {
 	})
 
 	return nil
+}
+
+func (im *ImageMaster) ShowHelp() {
+	fmt.Println("The available options for this image master are: ")
+	fmt.Println("-grayscale : recursively searches the passed directory and creates grayscale copies of the images")
+	fmt.Println("-smoothen : recursively searches the passed directory and creates smoothened copies of the images")
+	fmt.Println("-sharpen : recursively searches the passed directory and creates sharpened copies of the images")
+	fmt.Println("-find=<specific-object> : recursively searches the passed directory and creates copies of the images that match the <specific-object>")
+	fmt.Println("-bye : exits the program.")
 }
 
 func pointOutMatches(img image.Image, labels []string, classes []float32, boxes [][]float32) {
